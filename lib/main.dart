@@ -23,7 +23,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   int horCards = 4; // Number of cards horizontally
   int vertCards = 4; // Number of cards vertically
-  late List<List<int>> matrix;
+  late List<List<String>> matrix;
   bool freeze = false;
   List<int>? firstCard; // Store the position of the first card clicked
   late List<List<bool>> flippedCards; // Track which cards are flipped
@@ -63,8 +63,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void initializeGame() {
+    // Define your image paths here
+    List<String> images = [
+      'assets/images/Airplane.png',
+      'assets/images/boeing.png',
+      'assets/images/Rocket1a.png',
+      'assets/images/Satelite2.png',
+      'assets/images/saturn.png',
+      'assets/images/Space_Ship.png',
+      'assets/images/Spacex.png',
+      'assets/images/Sputnik.png',
+      // 'assets/images/image1.png',
+      // 'assets/images/image2.png',
+      // 'assets/images/image3.png',
+      // 'assets/images/image4.png',
+      // 'assets/images/image5.png',
+      // 'assets/images/image6.png',
+      // 'assets/images/image7.png',
+      // 'assets/images/image8.png',
+    ];
+
     // Generate card pairs and shuffle
-    List<int> ar = List<int>.generate(horCards * vertCards ~/ 2, (i) => i)..addAll(List<int>.generate(horCards * vertCards ~/ 2, (i) => i));
+    List<String> ar = List.from(images)..addAll(images);
     ar.shuffle();
 
     // Create the matrix
@@ -151,7 +171,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return AnimatedBuilder(
       animation: _animations[x][y],
       builder: (context, child) {
-        final isFlipped = _animations[x][y].value >= 0.5;
+        final rotationValue = _animations[x][y].value;
+        final isFlipped = rotationValue >= 0.5;
         return GestureDetector(
           onTap: () {
             if (!isFlipped) {
@@ -159,34 +180,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             }
           },
           child: Transform(
-            transform: Matrix4.rotationY(_animations[x][y].value * 3.1416),
+            transform: Matrix4.rotationY(rotationValue * 3.1416),
             alignment: Alignment.center,
-            child: isFlipped
-                ? matchedCards[x][y]
-                    ? ScaleTransition(
-                        scale: _popAnimations[x][y],
-                        child: FadeTransition(
-                          opacity: _fadeAnimations[x][y],
-                          child: Card(
-                            key: ValueKey<int>(matrix[x][y]),
-                            child: Center(
-                              child: Text(matrix[x][y].toString()),
-                            ),
-                          ),
-                        ),
-                      )
-                    : Card(
-                        key: ValueKey<int>(matrix[x][y]),
-                        child: Center(
-                          child: Text(matrix[x][y].toString()),
-                        ),
-                      )
-                : Card(
-                    key: ValueKey<int>(matrix[x][y]),
-                    child: Center(
-                      child: Text(''), // Empty text when the card is unflipped
-                    ),
-                  ),
+            child: Card(
+              key: ValueKey<String>(matrix[x][y]),
+              child: Center(
+                child: isFlipped
+                    ? Image.asset(matrix[x][y]) // Show image after flip
+                    : Container(color: Colors.blue), // Hide image before flip
+              ),
+            ),
           ),
         );
       },
@@ -198,6 +201,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Scaffold(
       appBar: AppBar(
         title: Text('Memory Game'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                initializeGame();
+              });
+            },
+          ),
+        ]
       ),
       body: GridView.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
