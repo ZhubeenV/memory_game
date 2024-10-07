@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 void main() => runApp(MemoryGameApp());
@@ -25,6 +26,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   int vertCards = 4; // Number of cards vertically
   late List<List<String>> matrix;
   bool freeze = false;
+  bool gameCompleted = false; // Flag to indicate if the game is completed
   List<int>? firstCard; // Store the position of the first card clicked
   late List<List<bool>> flippedCards; // Track which cards are flipped
   late List<List<bool>> matchedCards; // Track which cards have been matched
@@ -34,7 +36,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late List<List<Animation<double>>> _popAnimations;
   late List<List<Animation<double>>> _fadeAnimations;
   int found = 0;
-  late DateTime startTime;
+  Timer? _timer;
+  int _milliseconds = 0;
 
   // Duration settings
   Duration flipDuration = Duration(milliseconds: 300); // Time to flip a single card
@@ -59,10 +62,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         popFadeController.dispose();
       }
     }
+    _timer?.cancel(); // Cancel the timer when the widget is disposed
     super.dispose();
   }
 
   void initializeGame() {
+    // Cancel any existing timer and reset the time
+    _timer?.cancel();
+    _timer = null; // Reset the timer
+    _milliseconds = 0; // Reset time to zero
+    gameCompleted = false; // Reset game completion flag
+    found = 0; // Reset found cards count
+
     // Define your image paths here
     List<String> images = [
       'assets/images/Airplane.png',
@@ -73,14 +84,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       'assets/images/Space_Ship.png',
       'assets/images/Spacex.png',
       'assets/images/Sputnik.png',
-      // 'assets/images/image1.png',
-      // 'assets/images/image2.png',
-      // 'assets/images/image3.png',
-      // 'assets/images/image4.png',
-      // 'assets/images/image5.png',
-      // 'assets/images/image6.png',
-      // 'assets/images/image7.png',
-      // 'assets/images/image8.png',
     ];
 
     // Generate card pairs and shuffle
@@ -117,17 +120,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         curve: Curves.easeOut,
       ));
     }));
+  }
 
-    startTime = DateTime.now();
+  void startTimer() {
+    if (_timer == null) {
+      _timer = Timer.periodic(Duration(milliseconds: 10), (timer) {
+        setState(() {
+          _milliseconds += 10;
+        });
+      });
+    }
   }
 
   void flipCard(int x, int y) {
-    if (!freeze && !flippedCards[x][y] && !matchedCards[x][y]) {
+    if (!freeze && !flippedCards[x][y] && !matchedCards[x][y] && !gameCompleted) {
       setState(() {
         flippedCards[x][y] = true;
       });
 
       _controllers[x][y].forward(); // Start the flip animation
+
+      // Start the timer when the first card is flipped
+      startTimer();
 
       if (firstCard == null) {
         // First card flipped
@@ -145,6 +159,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               matchedCards[firstCard![0]][firstCard![1]] = true;
             });
             found += 2;
+
+            // Check if the game is complete
+            if (found == horCards * vertCards) {
+              setState(() {
+                gameCompleted = true; // Mark the game as complete
+              });
+              _timer?.cancel(); // Stop the timer when the game is completed
+              print("Game completed in $_milliseconds milliseconds!");
+            }
           } else {
             // Cards don't match, flip them back over
             _controllers[x][y].reverse(); // Reverse the flip animation
@@ -157,11 +180,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           // Reset the first card
           firstCard = null;
           freeze = false;
-
-          if (found == horCards * vertCards) {
-            Duration finalTime = DateTime.now().difference(startTime);
-            print("Final time: ${finalTime.inSeconds} seconds");
-          }
         });
       }
     }
@@ -196,6 +214,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget buildTimer() {
+    // Format the milliseconds into minutes, seconds, and milliseconds
+    int minutes = _milliseconds ~/ 60000;
+    int seconds = (_milliseconds % 60000) ~/ 1000;
+    int milliseconds = (_milliseconds % 1000) ~/ 10;
+    return Text(
+      'Time: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}:${milliseconds.toString().padLeft(2, '0')}',
+      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,18 +239,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               });
             },
           ),
-        ]
+        ],
       ),
-      body: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: vertCards,
-        ),
-        itemCount: horCards * vertCards,
-        itemBuilder: (context, index) {
-          int x = index ~/ vertCards;
-          int y = index % vertCards;
-          return buildCard(x, y);
-        },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: buildTimer(),
+          ),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: vertCards,
+              ),
+              itemCount: horCards * vertCards,
+              itemBuilder: (context, index) {
+                int x = index ~/ vertCards;
+                int y = index % vertCards;
+                return buildCard(x, y);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
